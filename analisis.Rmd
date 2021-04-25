@@ -1,0 +1,110 @@
+---
+title: "Análisis de Correlaciones Canónicas"
+author: "Luengas R. Fabian"
+date: "22/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\section{Análisis de Correlaciones Canónicas Incremento en la Temperatura Mundial}
+\subsection{1. Librerias.}
+
+```{r, results='hide',message=FALSE}
+library("dplyr") 
+library("ggplot2")
+library("GGally")
+library('CCA')
+library('CCP')
+library('knitr')
+```
+
+```{r, results='hide',message=FALSE,echo=FALSE}
+df <- read.csv("CCA.csv")
+```
+```{r, results='hide',message=FALSE,echo=FALSE}
+df_1 = df[,c('temperature','electricprod','population')]
+df_2 = df[,c('forest','agriculture','co2')]
+```
+\subsection{2. Conjunto de Datos.}
+
+El conjunto de datos, el cual se extrajo desde el repositorio de bases de datos del Banco Mundial, nos provee información del aumento de la temperatura a nivel mundial en conjunto de una serie de variables interesantes como lo son; la cantidad de área en kilómetros utilizada por país para la actividad agrícola, la cantidad de área en kilómetros de bosques y forestación que presenta el país, la cantidad de Co2 producida por el país en kilotones, la cantidad de población del país y la cantidad de energía eléctrica consumida por industrias. Estas variables fueron medidas cada año en cada país.
+
+```{r,echo=FALSE, message=FALSE}
+table <- df %>%
+  sample_n(size=6,replace=FALSE)
+kable(table)
+```
+Con el fin de aplicar un análisis de correlaciones canónicas se procede a seleccionar dos subconjuntos de variables, esto busca las combinaciones lineales que maximicen la correlación entre estos dos conjuntos ($U_i,V_i$). El producto de este serán dos variables vector que contiene cada variable ($X_p,Y_q$) del conjunto ($U_i,V_i$) asociadas con unos coeficientes canónicos similares a los coeficientes de regresión, Estas variantes canónicas son de hecho un tipo de variable latente.
+
+
+Por definición nuestros subconjuntos de datos ($U_i,V_i$) se conocerán como pár canónico y para el desarrollo adecuado del análisis, se trae a consideración los supuestos del PCA, ya que ambos métodos desarrollan procesos análogos. 
+```{r,echo=FALSE, fig=TRUE, message=FALSE}
+My_Theme = theme(
+  axis.title.x = element_text(size = 8),
+  axis.text.x = element_text(size = 8,angle = 90),
+  axis.title.y = element_text(size = 8))
+```
+
+\subsection{3. Análisis de Correlación.}
+Se ha determinado que el primer conjunto de variables presenta una correlación lineal entre sus resultados débil a comparación del segundo conjunto de variables en el cual se puede apreciar que el aumento en la cantidad de área usada para la agricultura supone un aumento en el Co2 producido por el país al año, también se puede apreciar que la cantidad de área forestada tiene una correlación positiva con el Co2, lo cual razonablemente no es intuitivo para nosotros, esto puede deberse a las escalas presentadas entre las dos variables y una posible varianza significativamente mayor en una de ellas, por consiguiente la estandarización de los datos nos confirma este supuesto.
+
+En el primer conjunto de datos se aprecia solo una correlación relevante entre la cantidad de energía eléctrica consumida por año y la temperatura anual, esta correlación es negativa la cual supone que a mayor consumo de energía eléctrica del país se detiene el aumento de la temperatura anual.
+
+```{r,echo=FALSE, fig=TRUE, message=FALSE, fig.width=3.5,fig.height=3.5}
+par(mfrow=c(1,2))
+ggpairs(df_1,title = '1er Conjunto Var')+ My_Theme 
+ggpairs(df_2,title = '2do Conjunto Var')+My_Theme 
+```
+\subsection{4. Análisis de Coeficientes Canónicos}
+Los coeficientes canónicos, como anteriormente se mencionó, se comportan similar a los coeficientes de regresión, con la diferencia de que cada variable supone una tasa de cambio es en una variante canónica ó una dimensión canónica y no una variación para una variable en sí. 
+
+```{r,echo=FALSE,message=FALSE}
+mat_cor <- matcor(df_1, df_2)
+```
+```{r,echo=FALSE,message=FALSE}
+cc1 <- cc(df_1,df_2)
+cc1[3:4]
+```
+Los coeficientes que se obtienen del análisis de correlaciones canónicas no representan mayor cambio en las variables para cada una de las dimensiones canónicas.
+
+\subsection{5. Cálculo de las Cargas de las Variables en las Dimensiones Canónicas}
+
+Las cargas son la correlación entre las variables y las dimensiones canónicas, los cuales representan la conjugación de la correlación entre el conjunto de variables del par canónico, es decir ($X_p,Y_q$), donde se puede apreciar la combinación lineal entre el par canónico ($U_i,V_i$) que maximiza la correlación. 
+```{r,echo=FALSE,message=FALSE}
+cc2 <- comput(df_1, df_2, cc1)
+cc2[3:6]
+```
+```{r,echo=FALSE,message=FALSE}
+img.matcor(mat_cor, type = 2)
+```
+\subsection{6. Aproximaciones F de diferentes estadísticas de prueba}
+
+Para determinar la significancia de las variantes canónicas, a continuación se representa el estadístico de prueba F-approximation, esto nos indicará que tantas variantes canónicas son significantes en el análisis. 
+```{r,message=FALSE}
+rho <- cc1$cor
+n <- dim(df_1)[1]
+p <- length(df_1)
+q <- length(df_2)
+p.asym(rho, n, p, q, tstat = "Wilks")
+```
+Se encuentra que hasta la tercera dimensión canónica es considerablemente significante.
+
+\subsection{7. Estandarización de las Observaciones y su Análisis}
+
+Con anterioridad se encontraron coeficientes canónicos de las variables que no significaban razón de cambio en cada una de las dimensiones canónicas, por tanto, se opta por aplicar la estandarización de los datos de la cual resulta una variación importante en las variables en sus desviaciones estándar para cada una de las dimensiones. 
+
+```{r}
+s1 <- diag(sqrt(diag(cov(df_1))))
+s1 %*% cc1$xcoef
+```
+```{r}
+s2 <- diag(sqrt(diag(cov(df_2))))
+s2 %*% cc1$ycoef
+```
+Podemos concluir que la variable Population para el conjunto de variables uno, es quien más representa razón de cambio en la primera dimensión y la variable Co2 para el conjunto de variables dos, es quien más representa razón de cambio en la primera dimensión aunque cambiando totalmente en la segunda dimensión.
+
+
+
